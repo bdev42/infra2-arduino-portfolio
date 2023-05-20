@@ -33,51 +33,90 @@ void writeMemory(uint16_t adress, uint16_t value) {
 }
 
 uint16_t readMemory(uint16_t adress) {
-
+  return 0;
 }
 
 void ALU(CPU *cpuState, uint16_t inst) {
   // 01xx AAAA rrrr ssss
-  uint8_t operation = (inst & 0x0f00) >> 8;
-  uint32_t result = 0;
+  const uint8_t operation = (inst & 0x0f00) >> 8;
+  uint32_t result = cpuState->reg[inst & 0x00f0]; //also operand A
+  const uint16_t B = cpuState->reg[inst & 0x000f];
   if(operation == 0) // NOP
   {
-
+    result = B;
   }else if(operation == 1) // OR
   {
-
+    result |= B;
   }else if(operation == 2) // AND
   {
-
+    result &= B;
   }else if(operation == 3) // XOR
   {
-
+    result = result ^ B;
   }else if(operation == 4) // ADD
   {
-
+    result += B;
   }else if(operation == 5) // SUB
   {
-
+    result -= B;
   }else if(operation == 6) // SHIFT LEFT
   {
-
+    result = (result << B) & 0xffff;
   }else if(operation == 7) // SHIFT RIGHT
   {
-
+    result = result >> B;
   }else if(operation == 8) // ARITHMETIC SHIFT RIGHT
   {
-
+    //Right shift for signed values are implementation dependent in C, so we do it on our own:
+    uint8_t sign = result & 0x8000;
+    for(uint8_t i = 0; i < B; i++) {
+      result = sign | (result >> 1);
+    }
   }else if(operation == 9) // NOT
   {
-
+    result = ~B;
   }else if(operation == 10) // NEG
   {
-
+    // 2's complement of the second input
+    // must ignore overflow
+    result = (1 + (~B)) & 0xffff;
   }else {
     #ifdef DEBUG
     printf("/!\\ Unknown/invalid ALU operation '%d' at PC: %d\n", operation, cpuState->PC);
     #endif
   }
+  //--= UPDATE CPU FLAGS =--//
+  //carry flag (unsigned overflow)
+  if(result & 0x10000) {
+    cpuState->flags |= FL_CARRY_MSK;
+  }else {
+    cpuState->flags &= ~FL_CARRY_MSK;
+  }
+  //zero flag
+  if((result & 0xffff) == 0) {
+    cpuState->flags |= FL_ZERO_MSK;
+  }else {
+    cpuState->flags &= ~FL_ZERO_MSK;
+  }
+  //sign flag
+  if(result & 0x8000) {
+    cpuState->flags |= FL_SIGN_MSK;
+  }else {
+    cpuState->flags &= ~FL_SIGN_MSK;
+  }
+  // overflow flag
+  // When two signed 2's complement numbers are added, overflow is detected if:
+  // both operands are positive and the result is negative, 
+  // OR both operands are negative and the result is positive.
+  uint8_t operandANegative = (cpuState->reg[inst & 0x00f0] & 0x8000) != 0;
+  if(((!operandANegative) && ((B & 0x8000)==0) && ((result & 0x8000)!=0)) || ((operandANegative) && ((B & 0x8000)!=0) && ((result & 0x8000)==0))) {
+    cpuState->flags |= FL_OVERFLOW_MSK;
+  }else {
+    cpuState->flags &= ~FL_OVERFLOW_MSK;
+  }
+
+  // reg[r] = reg[r] ALU reg[s]
+  cpuState->reg[inst & 0x00f0] = (uint16_t) result;
 }
 
 void performInstructionCycle(CPU *cpuState) {
@@ -100,7 +139,7 @@ void performInstructionCycle(CPU *cpuState) {
   }else if( (inst & 0x8000) == 0 && (inst & 0x4000)) // ALU 
   {
     // 01xx AAAA rrrr ssss
-    ALU(&cpuState, inst);
+    ALU(cpuState, inst);
     cpuState->PC++;
   }else if( (inst & 0x8000) && (inst & 0x6000) == 0 ) // LOAD
   {
