@@ -1,4 +1,5 @@
 #include <avr/io.h>
+#include <stdlib.h>
 
 #define DEBUG
 #ifdef DEBUG
@@ -20,20 +21,51 @@ typedef struct
 #define FL_ZERO     1
 #define FL_SIGN     2
 #define FL_OVERFLOW 3
+#define FL_MEMORYF  6
 #define FL_HALT     7
 
 #define FL_CARRY_MSK    _BV(FL_CARRY)
 #define FL_ZERO_MSK     _BV(FL_ZERO)
 #define FL_SIGN_MSK     _BV(FL_SIGN)
 #define FL_OVERFLOW_MSK _BV(FL_OVERFLOW)
+#define FL_MEMORYF_MSK  _BV(FL_MEMORYF)
 #define FL_HALT_MSK     _BV(FL_HALT)
 
-void writeMemory(uint16_t adress, uint16_t value) {
+typedef struct
+{
+  uint16_t values[256];
+} MEMBLOCK;
 
+typedef struct
+{
+  uint8_t num_blocks;
+  MEMBLOCK *blocks;
+} MEMORY;
+
+MEMORY dataram = {};
+
+int writeMemory(uint16_t address, uint16_t value) {
+  uint8_t block_index = (address & 0xff00) >> 8;
+  if(block_index >= dataram.num_blocks) {
+    dataram.num_blocks = block_index + 1;
+    dataram.blocks = realloc(dataram.blocks, sizeof(MEMBLOCK)*(dataram.num_blocks));
+    if(dataram.blocks==NULL) {
+      #ifdef DEBUG
+      printf("Memory Allocation FAILED: (blocks: %d;TO_WRITE: adress: %x, block: %x, value: %X)\n", dataram.num_blocks, address, block_index, value);
+      #endif
+      return 0;
+    }
+  }
+  dataram.blocks[block_index].values[address & 0x00ff] = value;
+  return 1;
 }
 
-uint16_t readMemory(uint16_t adress) {
-  return 0;
+uint16_t readMemory(uint16_t address) {
+  uint8_t block_index = (address & 0xff00) >> 8;
+  if(block_index >= dataram.num_blocks) {
+    return 0; //uninitilaized memory blocks are assumed to have 0 as value
+  }
+  return dataram.blocks[block_index].values[address & 0x00ff];
 }
 
 void ALU(CPU *cpuState, uint16_t inst) {
@@ -149,7 +181,12 @@ void performInstructionCycle(CPU *cpuState) {
   }else if((inst & 0xA000) == 0xA000 && (inst & 0x4000) == 0) // STORE
   {
     // 101x xxxx rrrr ssss
-    writeMemory(cpuState->reg[inst & 0x000f], cpuState->reg[inst & 0x00f0]);
+    if(!writeMemory(cpuState->reg[inst & 0x000f], cpuState->reg[inst & 0x00f0])) {
+      #ifdef DEBUG
+      printf("/!\\ Moncky 1 HALTING FOR MEMORYFAULT... (PC: %d)\n", cpuState->PC);
+      #endif
+      cpuState->flags |= FL_HALT_MSK | FL_MEMORYF_MSK;
+    }
     cpuState->PC++;
   }else if( (inst & 0xC000) == 0xC000 && (inst & 0x2000) == 0) // JUMP
   {
