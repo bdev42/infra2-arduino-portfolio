@@ -1,5 +1,8 @@
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <stdlib.h>
+
+#include <buttonlib.h>
 
 #define DEBUG
 #ifdef DEBUG
@@ -18,6 +21,8 @@ typedef struct
   uint16_t PC;
   uint8_t flags;
 } CPU;
+
+CPU cpuState = {};
 
 #define FL_CARRY    0
 #define FL_ZERO     1
@@ -57,7 +62,7 @@ void printCPUState(CPU *cpuState) {
   printString("\n-----------------------------\n");
 }
 void printMemoryBlock(MEMBLOCK *block) {
-  printString("\n>>      MEMORY  BLOCK      <<\n    ");
+  printString("\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  MEMORY BLOCK - START  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n    ");
   for(uint8_t lsi = 0; lsi < 16; lsi++) {
     printf("   %x ", lsi);
   }
@@ -71,7 +76,7 @@ void printMemoryBlock(MEMBLOCK *block) {
       printString(" ");
     }
   }
-  printString("\n");
+  printString("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   MEMORY BLOCK - END   <<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
 }
 void printState(CPU *cpuState) {
   printCPUState(cpuState);
@@ -81,7 +86,7 @@ void printState(CPU *cpuState) {
     printString("First Block: ");
     printMemoryBlock(dataram.blocks);
   }
-  printString("\n=============================\n");
+  printString("=============================\n");
 }
 #endif
 
@@ -90,7 +95,7 @@ int writeMemory(uint16_t address, uint16_t value) {
   if(block_index >= dataram.num_blocks) {
     dataram.num_blocks = block_index + 1;
     #ifdef DEBUG
-    printf("Allocating memory: (blocks: %d;TO_WRITE: adress: 0x%x, block: 0x%x, value: 0x%X)\n", dataram.num_blocks, address, block_index, value);
+    printf("\t\tAllocating memory: (blocks: %d;TO_WRITE: adress: 0x%x, block: 0x%x, value: 0x%X)\n", dataram.num_blocks, address, block_index, value);
     #endif
     dataram.blocks = realloc(dataram.blocks, sizeof(MEMBLOCK)*(dataram.num_blocks));
     if(dataram.blocks==NULL) {
@@ -124,7 +129,7 @@ void ALU(CPU *cpuState, uint16_t inst) {
   uint32_t result = cpuState->reg[(inst & 0x00f0) >> 4]; //also operand A
   const uint16_t B = cpuState->reg[inst & 0x000f];
   #ifdef DEBUG
-  printf("\t\t[ALU CALL] oper: %u A:", operation);
+  printf("\tALU CALL>> op: %u A:", operation);
   printWord(cpuState->reg[(inst & 0x00f0) >> 4]);
   printString(" B: ");
   printWord(cpuState->reg[inst & 0x000f]);
@@ -227,21 +232,33 @@ void performInstructionCycle(CPU *cpuState) {
   }else if( (inst & 0xC000) == 0 && (inst & 0x1000) ) // LOAD IMMEDIATE
   {
     // 00x1 iiii iiii rrrr
+    #ifdef DEBUG
+      printf("\tli r%u, 0x%X\n", inst & 0x000f, (inst >> 4) & 0x00ff);
+    #endif
     cpuState->reg[inst & 0x000f] = (inst >> 4) & 0x00ff;
     cpuState->PC++;
   }else if( (inst & 0x8000) == 0 && (inst & 0x4000)) // ALU 
   {
     // 01xx AAAA rrrr ssss
+    #ifdef DEBUG
+      printf("\tALU r%u, r%u", (inst & 0x00f0) >> 4, inst & 0x000f);
+    #endif
     ALU(cpuState, inst);
     cpuState->PC++;
   }else if( (inst & 0x8000) && (inst & 0x6000) == 0 ) // LOAD
   {
     // 100x xxxx rrrr ssss
+    #ifdef DEBUG
+      printf("\tld r%u, (r%u)\n", (inst & 0x00f0) >> 4, inst & 0x000f);
+    #endif
     cpuState->reg[(inst & 0x00f0) >> 4] = readMemory(cpuState->reg[inst & 0x000f]);
     cpuState->PC++;
   }else if((inst & 0xA000) == 0xA000 && (inst & 0x4000) == 0) // STORE
   {
     // 101x xxxx rrrr ssss
+    #ifdef DEBUG
+      printf("\tst r%u, (r%u)\n", (inst & 0x00f0) >> 4, inst & 0x000f);
+    #endif
     if(!writeMemory(cpuState->reg[inst & 0x000f], cpuState->reg[(inst & 0x00f0) >> 4])) {
       #ifdef DEBUG
       printf("/!\\ Moncky 1 HALTING DUE TO MEMORYFAULT... (PC: %d)\n", cpuState->PC);
@@ -252,10 +269,16 @@ void performInstructionCycle(CPU *cpuState) {
   }else if( (inst & 0xC000) == 0xC000 && (inst & 0x2000) == 0) // JUMP
   {
     // 110x xxxx xxxx rrrr
+    #ifdef DEBUG
+      printf("\tjp r%u\n", inst & 0x000f);
+    #endif
     cpuState->PC = cpuState->reg[inst & 0x000f];
   }else if( (inst & 0xf000) == 0xf000 ) //CONDITIONAL JUMP
   {
     // 1111 xxxx xccN rrrr (N: negate condition if 1)
+    #ifdef DEBUG
+      printf("\tjpC r%u  ; condition = %u\n", inst & 0x000f, (inst & 0x0060) >> 5);
+    #endif
     uint8_t condition = (cpuState->flags & _BV((inst & 0x0060) >> 5)) != 0;
     if(condition != ((inst & 0x0010) >> 4)) {
       cpuState->PC = cpuState->reg[inst & 0x000f];
@@ -271,8 +294,17 @@ void performInstructionCycle(CPU *cpuState) {
   }
 }
 
+ISR(PCINT1_vect) {
+  if(bit_is_clear(BUTTONS_PIN, BUTTON1)) {
+    printState(&cpuState);
+  } else if(bit_is_clear(BUTTONS_PIN, BUTTON3)) {
+    performInstructionCycle(&cpuState);
+  }
+}
+
 int main() {
-  CPU cpuState = {};
+
+  enableButtonInterrupts();
 
   #ifdef DEBUG
   initUSART();
