@@ -6,6 +6,8 @@
 #include <usart.h>
 #endif
 
+#define CLEAR_GARBAGE_ON_ALLOC
+
 #include "program.h"
 
 const uint16_t program[] = PROGRAM;
@@ -54,22 +56,55 @@ void printCPUState(CPU *cpuState) {
   }
   printString("\n-----------------------------\n");
 }
+void printMemoryBlock(MEMBLOCK *block) {
+  printString("\n>>      MEMORY  BLOCK      <<\n    ");
+  for(uint8_t lsi = 0; lsi < 16; lsi++) {
+    printf("   %x ", lsi);
+  }
+  printString("\n");
+  for(uint8_t msi = 0; msi < 16; msi++) {
+    printf("\n0x%x  ", msi);
+    for(uint8_t lsi = 0; lsi < 16; lsi++) {
+      uint8_t i = (msi << 4) | lsi;
+      printHexByte((block->values[i] & 0xff00) >> 8);
+      printHexByte(block->values[i] & 0x00ff);
+      printString(" ");
+    }
+  }
+  printString("\n");
+}
+void printState(CPU *cpuState) {
+  printCPUState(cpuState);
+  printString("MEMORY STATISTICS: \n");
+  printf("Blocks Allocated: %u\n", dataram.num_blocks);
+  if(dataram.num_blocks >= 1) {
+    printString("First Block: ");
+    printMemoryBlock(dataram.blocks);
+  }
+  printString("\n=============================\n");
+}
 #endif
 
 int writeMemory(uint16_t address, uint16_t value) {
   uint8_t block_index = (address & 0xff00) >> 8;
   if(block_index >= dataram.num_blocks) {
     dataram.num_blocks = block_index + 1;
-    dataram.blocks = realloc(dataram.blocks, sizeof(MEMBLOCK)*(dataram.num_blocks));
     #ifdef DEBUG
-    printf("Allocating memory: (blocks: %d;TO_WRITE: adress: %x, block: %x, value: %X)\n", dataram.num_blocks, address, block_index, value);
+    printf("Allocating memory: (blocks: %d;TO_WRITE: adress: 0x%x, block: 0x%x, value: 0x%X)\n", dataram.num_blocks, address, block_index, value);
     #endif
+    dataram.blocks = realloc(dataram.blocks, sizeof(MEMBLOCK)*(dataram.num_blocks));
     if(dataram.blocks==NULL) {
       #ifdef DEBUG
-      printf("Memory Allocation FAILED: (blocks: %d;TO_WRITE: adress: %x, block: %x, value: %X)\n", dataram.num_blocks, address, block_index, value);
+      printf("Memory Allocation FAILED: (blocks: %d;TO_WRITE: adress: 0x%x, block: 0x%x, value: 0x%X)\n", dataram.num_blocks, address, block_index, value);
       #endif
       return 0;
     }
+    #ifdef CLEAR_GARBAGE_ON_ALLOC
+    dataram.blocks[block_index].values[0] = 0;
+    for(uint8_t i = 0; i < 255; i++) {
+      dataram.blocks[block_index].values[i+1] = 0;
+    }
+    #endif
   }
   dataram.blocks[block_index].values[address & 0x00ff] = value;
   return 1;
@@ -89,7 +124,7 @@ void ALU(CPU *cpuState, uint16_t inst) {
   uint32_t result = cpuState->reg[(inst & 0x00f0) >> 4]; //also operand A
   const uint16_t B = cpuState->reg[inst & 0x000f];
   #ifdef DEBUG
-  printf("[ALU CALL] oper: %u A:", operation);
+  printf("\t\t[ALU CALL] oper: %u A:", operation);
   printWord(cpuState->reg[(inst & 0x00f0) >> 4]);
   printString(" B: ");
   printWord(cpuState->reg[inst & 0x000f]);
@@ -241,12 +276,12 @@ int main() {
 
   #ifdef DEBUG
   initUSART();
-  printString("Moncky 1 started!\n");
+  printState(&cpuState);
+  printString("Moncky 1 STARTED!\n");
   #endif
 
-  printCPUState(&cpuState);
   while((cpuState.flags & FL_HALT_MSK) == 0) {
     performInstructionCycle(&cpuState);
   }
-  printCPUState(&cpuState);
+  printState(&cpuState);
 }
