@@ -44,11 +44,26 @@ typedef struct
 
 MEMORY dataram = {};
 
+#ifdef DEBUG
+void printCPUState(CPU *cpuState) {
+  printString("---=== MonckyUno State ===---\nPC: ");
+  printWord(cpuState->PC);
+  printString("\n");
+  for(uint8_t i = 0; i < 16; i++) {
+    printf("R%d: 0x%X ", i, cpuState->reg[i]);
+  }
+  printString("\n-----------------------------\n");
+}
+#endif
+
 int writeMemory(uint16_t address, uint16_t value) {
   uint8_t block_index = (address & 0xff00) >> 8;
   if(block_index >= dataram.num_blocks) {
     dataram.num_blocks = block_index + 1;
     dataram.blocks = realloc(dataram.blocks, sizeof(MEMBLOCK)*(dataram.num_blocks));
+    #ifdef DEBUG
+    printf("Allocating memory: (blocks: %d;TO_WRITE: adress: %x, block: %x, value: %X)\n", dataram.num_blocks, address, block_index, value);
+    #endif
     if(dataram.blocks==NULL) {
       #ifdef DEBUG
       printf("Memory Allocation FAILED: (blocks: %d;TO_WRITE: adress: %x, block: %x, value: %X)\n", dataram.num_blocks, address, block_index, value);
@@ -71,8 +86,14 @@ uint16_t readMemory(uint16_t address) {
 void ALU(CPU *cpuState, uint16_t inst) {
   // 01xx AAAA rrrr ssss
   const uint8_t operation = (inst & 0x0f00) >> 8;
-  uint32_t result = cpuState->reg[inst & 0x00f0]; //also operand A
+  uint32_t result = cpuState->reg[(inst & 0x00f0) >> 4]; //also operand A
   const uint16_t B = cpuState->reg[inst & 0x000f];
+  #ifdef DEBUG
+  printf("[ALU CALL] oper: %u A:", operation);
+  printWord(cpuState->reg[(inst & 0x00f0) >> 4]);
+  printString(" B: ");
+  printWord(cpuState->reg[inst & 0x000f]);
+  #endif
   if(operation == 0) // NOP
   {
     result = B;
@@ -140,15 +161,20 @@ void ALU(CPU *cpuState, uint16_t inst) {
   // When two signed 2's complement numbers are added, overflow is detected if:
   // both operands are positive and the result is negative, 
   // OR both operands are negative and the result is positive.
-  uint8_t operandANegative = (cpuState->reg[inst & 0x00f0] & 0x8000) != 0;
+  uint8_t operandANegative = (cpuState->reg[(inst & 0x00f0) >> 4] & 0x8000) != 0;
   if(((!operandANegative) && ((B & 0x8000)==0) && ((result & 0x8000)!=0)) || ((operandANegative) && ((B & 0x8000)!=0) && ((result & 0x8000)==0))) {
     cpuState->flags |= FL_OVERFLOW_MSK;
   }else {
     cpuState->flags &= ~FL_OVERFLOW_MSK;
   }
 
+  #ifdef DEBUG
+  printString(" result: ");
+  printWord(result);
+  printString("\n");
+  #endif
   // reg[r] = reg[r] ALU reg[s]
-  cpuState->reg[inst & 0x00f0] = (uint16_t) result;
+  cpuState->reg[(inst & 0x00f0) >> 4] = (uint16_t) result;
 }
 
 void performInstructionCycle(CPU *cpuState) {
@@ -176,14 +202,14 @@ void performInstructionCycle(CPU *cpuState) {
   }else if( (inst & 0x8000) && (inst & 0x6000) == 0 ) // LOAD
   {
     // 100x xxxx rrrr ssss
-    cpuState->reg[inst & 0x00f0] = readMemory(cpuState->reg[inst & 0x000f]);
+    cpuState->reg[(inst & 0x00f0) >> 4] = readMemory(cpuState->reg[inst & 0x000f]);
     cpuState->PC++;
   }else if((inst & 0xA000) == 0xA000 && (inst & 0x4000) == 0) // STORE
   {
     // 101x xxxx rrrr ssss
-    if(!writeMemory(cpuState->reg[inst & 0x000f], cpuState->reg[inst & 0x00f0])) {
+    if(!writeMemory(cpuState->reg[inst & 0x000f], cpuState->reg[(inst & 0x00f0) >> 4])) {
       #ifdef DEBUG
-      printf("/!\\ Moncky 1 HALTING FOR MEMORYFAULT... (PC: %d)\n", cpuState->PC);
+      printf("/!\\ Moncky 1 HALTING DUE TO MEMORYFAULT... (PC: %d)\n", cpuState->PC);
       #endif
       cpuState->flags |= FL_HALT_MSK | FL_MEMORYF_MSK;
     }
@@ -218,8 +244,9 @@ int main() {
   printString("Moncky 1 started!\n");
   #endif
 
+  printCPUState(&cpuState);
   while((cpuState.flags & FL_HALT_MSK) == 0) {
     performInstructionCycle(&cpuState);
   }
-
+  printCPUState(&cpuState);
 }
