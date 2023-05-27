@@ -1,0 +1,88 @@
+/**
+ * MonckyCode v1.3
+ * Created with JetBrains WebStorm.
+ */
+
+body {
+    font-family: Helvetica;
+    background-color: #BBB;
+}
+
+textarea {
+    height: 400px;
+    overflow: hidden;
+    resize: none;
+    font-size: large;
+}
+
+#source {
+    overflow: auto;
+    width: 185px;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow-x:  hidden;
+    overflow-y:  auto;
+}
+
+#linenumbers {
+    width: 30px;
+    text-align: right;
+}
+#address {
+    width: 20px;
+    text-align: right;
+}
+#hex {
+    width: 43px;
+}
+
+#bin {
+    width: 190px;
+}
+
+#messages, #errors {
+    width: 476px;
+}
+
+#lsfile, #plaintext, #programh {
+    width: 995px;
+    overflow-y: scroll;
+    height: 400px;
+    background-color: #ddd;
+    font-family: monospace;
+}
+
+#tabs li {
+    height: 25px;
+    padding: 5px;
+    margin-right: 5px;
+    display: block;
+    float: left;
+    background-color: #ccc;
+    list-style-type: none;
+    border: #708090 solid 1px;
+    border-bottom-style: none;
+}
+
+#tabs a {
+    margin: 0;
+    text-decoration: none;
+    color: black;
+}
+
+#panel {
+    clear: left;
+    border: #708090 solid 1px;
+    background-color: #777;
+    padding: 5px;
+    width: 1000px;
+}
+
+#tabs h2 {
+    margin: 0;
+}
+
+ul {
+    padding: 0;
+
+}

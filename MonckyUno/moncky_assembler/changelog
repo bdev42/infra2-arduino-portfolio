@@ -1,0 +1,23 @@
+v1.0
+    Initial version
+v1.1
+    Fixed Mozilla layout
+    Fixed "unknown instruction" error msgFixed
+    Fixed halt instruction: has no arguments
+    Added INC instruction from exercises
+    Fixed broken instruction JPC
+v1.2
+    Added code address column
+    Added plaintext tab
+    Added :labels
+    Added error handling
+v1.3
+    Changed NEG and NOT to 2 operands
+v1.4
+    Bug fix in plain text for NEG and NOT
+v1.5 
+    English translation
+
+========================================
+v1.5+uno1
+    Added MonckyUno tab, to export as program.h
