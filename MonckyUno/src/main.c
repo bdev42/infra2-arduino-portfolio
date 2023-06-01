@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <buttonlib.h>
+#include <adclib.h>
 
 #define DEBUG
 #ifdef DEBUG
@@ -50,6 +51,59 @@ typedef struct
 } MEMORY;
 
 MEMORY dataram = {};
+
+//Stops the clock (TIMER1) by setting the prescaler to 0
+void stopClock() {
+  TCCR1B &= ~(_BV(CS12) | _BV(CS11) | _BV(CS10));
+}
+
+//Sets up TIMER1 to use as the clock for Moncky 1
+void setupClock() {
+  // Set CTC mode with OCR1A
+  TCCR1A &= ~(_BV(WGM11) | _BV(WGM10));
+  TCCR1B |= _BV(WGM12);
+  // Stop clock initially
+  stopClock();
+  // Enable OCR1A interrupt
+  OCR1A = 1;
+  TIMSK1 |= _BV(OCIE1A);
+  sei();
+}
+
+uint8_t updateClockSpeed(uint16_t *lastOCRA) {
+  uint16_t adcval = readPinValue();
+  //adcval is expected to be between 0 and 1024 (10 bit ADC)
+  //OCR1A is between 1 and 65536 (16 bits)
+  /* We know the frequency of our timer is: 16 Mhz / 1024 (prescaler) = 15,625 kHz
+   * Then the frequency of our clock (timer interrupt) is equal to: 15625 / OCRA
+   * We want to use an exponential scale to be able to pick more precisely between the higher frequencies,
+   * because with if we did a linear scale the first value for OCRA would be 1 and the next would already be 65
+   * meaning the first frequency is 15625 and the next one is only around 240 Hz. [(adcval*64)+1]
+   * Our exponential function must be 1 when adc is 0, and must reach 2^16 when adc is 1024:  [o(x) = 2^((16/1024)*x)]
+   */
+  OCR1A = (1 << (16*adcval)/1024);
+  if(*lastOCRA != OCR1A) {
+    *lastOCRA = OCR1A;
+    #ifdef DEBUG
+    printf("CLK new OCRA: %u -> new clock freq: %u Hz\n", OCR1A, (15625 / OCR1A));
+    #endif
+    return 1;
+  }
+  return 0;
+}
+
+//Starts the clock (TIMER1) by setting the prescaler to 1024
+void startClock() {
+  TCCR1B |= _BV(CS12) | _BV(CS10);
+}
+
+void toggleClock() {
+  if((TCCR1B & (_BV(CS12) | _BV(CS11) | _BV(CS10))) == 0) {
+    startClock();
+  }else {
+    stopClock();
+  }
+}
 
 #ifdef DEBUG
 void printCPUState(CPU *cpuState) {
@@ -296,15 +350,32 @@ void performInstructionCycle(CPU *cpuState) {
 
 ISR(PCINT1_vect) {
   if(bit_is_clear(BUTTONS_PIN, BUTTON1)) {
+    #ifdef DEBUG
     printState(&cpuState);
+    #endif
+  } else if(bit_is_clear(BUTTONS_PIN, BUTTON2)) {
+    toggleClock();
   } else if(bit_is_clear(BUTTONS_PIN, BUTTON3)) {
     performInstructionCycle(&cpuState);
   }
 }
 
-int main() {
+ISR(TIMER1_COMPA_vect) {
+  if((cpuState.flags & FL_HALT_MSK) == 0) {
+    performInstructionCycle(&cpuState);
+  }else {
+    stopClock(); //We can stop the clock after the CPU is halted.
+    #ifdef DEBUG
+    printState(&cpuState);
+    #endif
+  }
+}
 
+int main() {
+  //Init
   enableButtonInterrupts();
+  initADC();
+  setupClock();
 
   #ifdef DEBUG
   initUSART();
@@ -312,8 +383,16 @@ int main() {
   printString("Moncky 1 STARTED!\n");
   #endif
 
-  while((cpuState.flags & FL_HALT_MSK) == 0) {
-    performInstructionCycle(&cpuState);
+  uint16_t lastOCRA = 0;
+  updateClockSpeed(&lastOCRA);
+
+  //Start
+  startClock();
+
+  //Update
+  while (1) {
+    //Update clock speed from ADC
+    updateClockSpeed(&lastOCRA);
   }
-  printState(&cpuState);
+  
 }
