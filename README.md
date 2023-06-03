@@ -4,23 +4,23 @@
 [Project Proposal](https://docs.google.com/document/d/14MxjyNdxrFIr5g0-lHUJzJUsimFi6WuBhsvv9xIky0E/edit?usp=share_link)
 
 **TASK OVERVIEW**
-- [ ] Proposal approved
+- [x] Proposal approved
 - [ ] Code project
-    - [ ] Representation in memory
-        - [ ] CPU
-        - [ ] DATARAM
-            - [ ] Dynamic allocation
+    - [x] Representation in memory
+        - [x] CPU
+        - [x] DATARAM
+            - [x] Dynamic allocation
         - [ ] BUTTON1: display all registers
-    - [ ] Implement instructions
-        - [ ] Halt
-        - [ ] Load immediate
-        - [ ] ALU
-        - [ ] Load & Store
-        - [ ] Jump
-        - [ ] Conditional jump
-    - [ ] Implement clock using Timer
-        - [ ] BUTTON2: start/stop timer
-        - [ ] Potentiometer: adjust clock speed
+    - [x] Implement instructions
+        - [x] Halt
+        - [x] Load immediate
+        - [x] ALU
+        - [x] Load & Store
+        - [x] Jump
+        - [x] Conditional jump
+    - [x] Implement clock using Timer
+        - [x] BUTTON2: start/stop timer
+        - [x] Potentiometer: adjust clock speed
     - [ ] Map display to R14 and R15
 - [ ] Document project
 
