@@ -4,6 +4,7 @@
 
 #include <buttonlib.h>
 #include <adclib.h>
+#include <ledlib.h>
 
 #define DEBUG
 #ifdef DEBUG
@@ -183,7 +184,7 @@ void ALU(CPU *cpuState, uint16_t inst) {
   uint32_t result = cpuState->reg[(inst & 0x00f0) >> 4]; //also operand A
   const uint16_t B = cpuState->reg[inst & 0x000f];
   #ifdef DEBUG
-  printf("\tALU CALL>> op: %u A:", operation);
+  printf("\tALU CALL>> op: %u A: ", operation);
   printWord(cpuState->reg[(inst & 0x00f0) >> 4]);
   printString(" B: ");
   printWord(cpuState->reg[inst & 0x000f]);
@@ -374,6 +375,7 @@ ISR(TIMER1_COMPA_vect) {
 int main() {
   //Init
   enableButtonInterrupts();
+  enableAllLeds();
   initADC();
   setupClock();
 
@@ -393,6 +395,13 @@ int main() {
   while (1) {
     //Update clock speed from ADC
     updateClockSpeed(&lastOCRA);
+    //Display CPU flags with leds [carry, zero, sign, overflow]
+    lightDownAllLeds();
+    if(cpuState.flags & FL_CARRY_MSK) lightUpLed(FL_CARRY);
+    if(cpuState.flags & FL_ZERO_MSK) lightUpLed(FL_ZERO);
+    if(cpuState.flags & FL_SIGN_MSK) lightUpLed(FL_SIGN);
+    if(cpuState.flags & FL_OVERFLOW_MSK) lightUpLed(FL_OVERFLOW);
+    
   }
   
 }
