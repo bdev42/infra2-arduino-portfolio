@@ -1,10 +1,12 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdlib.h>
+#include <util/delay.h>
 
 #include <buttonlib.h>
 #include <adclib.h>
 #include <ledlib.h>
+#include <display.h>
 
 #define DEBUG
 #ifdef DEBUG
@@ -12,6 +14,9 @@
 #endif
 
 #define CLEAR_GARBAGE_ON_ALLOC
+
+#define BUTTON1_DURATION_PER_REGISTER 3000
+#define BUTTON1_SKIP_REGS_WITH_ZERO
 
 #include "program.h"
 
@@ -144,6 +149,25 @@ void printState(CPU *cpuState) {
   printString("=============================\n");
 }
 #endif
+
+void displayRegister(CPU *cpuState, uint8_t regnum, int duration) {
+  duration = duration >> 1; // (duration/2)
+  //Display register number: Rnn=
+  for (int i = 0; i < duration/5; i++) {
+    writeCharToSegment(0, 'R');
+    _delay_ms(1);
+    writeNumberToSegment(1, regnum / 10);
+    _delay_ms(1);
+    writeNumberToSegment(2, regnum % 10);
+    _delay_ms(1);
+    writeGlyphToSegment(3, GLYPH_EQUALS);
+    _delay_ms(1);
+    writeGlyphToSegment(0, GLYPH_SPACE);
+    _delay_ms(1);
+  }
+  //Display register value:
+  writeHexWordAndWait(cpuState->reg[regnum], duration);
+}
 
 int writeMemory(uint16_t address, uint16_t value) {
   uint8_t block_index = (address & 0xff00) >> 8;
@@ -354,6 +378,12 @@ ISR(PCINT1_vect) {
     #ifdef DEBUG
     printState(&cpuState);
     #endif
+    for(uint8_t r = 0; r < 16; r++) {
+      #ifdef BUTTON1_SKIP_REGS_WITH_ZERO
+      if(cpuState.reg[r] == 0) continue;
+      #endif
+      displayRegister(&cpuState, r, BUTTON1_DURATION_PER_REGISTER);
+    }
   } else if(bit_is_clear(BUTTONS_PIN, BUTTON2)) {
     toggleClock();
   } else if(bit_is_clear(BUTTONS_PIN, BUTTON3)) {
@@ -376,6 +406,7 @@ int main() {
   //Init
   enableButtonInterrupts();
   enableAllLeds();
+  initDisplay();
   initADC();
   setupClock();
 

@@ -67,6 +67,14 @@ void shift(uint8_t val, uint8_t bitorder) {
   }
 }
 
+// Writes any glyph to a certain segment
+void writeGlyphToSegment(uint8_t segment, uint8_t glyph) {
+  cbi(PORTD, LATCH_DIO);
+  shift(glyph, MSBFIRST);
+  shift(SEGMENT_SELECT[segment], MSBFIRST);
+  sbi(PORTD, LATCH_DIO);
+}
+
 //Writes a digit to a certain segment. Segment 0 is the leftmost.
 void writeNumberToSegment(uint8_t segment, uint8_t value) {
   cbi(PORTD, LATCH_DIO);
@@ -100,7 +108,6 @@ void writeNumberAndWait(int number, int delay) {
   }
 }
 
-#define SPACE (0xFF)
 
 void writeCharToSegment(uint8_t segment, char character){
   if (character == tolower(character)){
@@ -108,10 +115,8 @@ void writeCharToSegment(uint8_t segment, char character){
   }
   cbi(PORTD, LATCH_DIO);
   if ('Z' < character || character < 'A'){
-    printString("It is space\n");
-    shift(SPACE, MSBFIRST);
+    shift(GLYPH_SPACE, MSBFIRST);
   } else {
-    // printf("It is a letter %c, value of %d, and in the alphabet map %x\n", character, (character - 'A'), ALPHABET_MAP[character - 'A']);
     shift(ALPHABET_MAP[character - 'A'], MSBFIRST);
   }
   shift(SEGMENT_SELECT[segment], MSBFIRST);
@@ -132,9 +137,35 @@ void writeString(char* str){
   }
 }
 
-
 void writeStringAndWait(char* str, int delay) {
   for (int i = 0; i < delay / 4; i++) {
     writeString(str);
+  }
+}
+
+void writeHexToSegment(uint8_t segment, uint8_t nibble) {
+  nibble &= 0x0f; // We only care about the lower nibble of the byte
+  cbi(PORTD, LATCH_DIO);
+  if(nibble < 10) {
+    shift(SEGMENT_MAP[nibble], MSBFIRST);
+  }else {
+    shift(ALPHABET_MAP[nibble-10], MSBFIRST);
+  }
+  shift(SEGMENT_SELECT[segment], MSBFIRST);
+  sbi(PORTD, LATCH_DIO);
+}
+
+void writeHexWordAndWait(uint16_t word, int delay) {
+  for (int i = 0; i < delay/5; i++) {
+    writeHexToSegment(0, (word >> 12));
+    _delay_ms(1);
+    writeHexToSegment(1, (word >> 8));
+    _delay_ms(1);
+    writeHexToSegment(2, (word >> 4));
+    _delay_ms(1);
+    writeHexToSegment(3, (word));
+    _delay_ms(1);
+    writeGlyphToSegment(0, GLYPH_SPACE);
+    _delay_ms(1);
   }
 }

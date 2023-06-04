@@ -10,7 +10,7 @@
         - [x] CPU
         - [x] DATARAM
             - [x] Dynamic allocation
-        - [ ] BUTTON1: display all registers
+        - [x] BUTTON1: display all registers
     - [x] Implement instructions
         - [x] Halt
         - [x] Load immediate
