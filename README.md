@@ -5,7 +5,7 @@
 
 **TASK OVERVIEW**
 - [x] Proposal approved
-- [ ] Code project
+- [x] Implement project
     - [x] Representation in memory
         - [x] CPU
         - [x] DATARAM
@@ -21,7 +21,7 @@
     - [x] Implement clock using Timer
         - [x] BUTTON2: start/stop timer
         - [x] Potentiometer: adjust clock speed
-    - [ ] Map display to R14 and R15
+    - [x] Map display to R14 and R15
 - [ ] Document project
 
 ## Weekly Projects

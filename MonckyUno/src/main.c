@@ -13,6 +13,8 @@
 #include <usart.h>
 #endif
 
+#define DEBUG_DONT_PRINT_INSTRUCTIONS
+
 #define CLEAR_GARBAGE_ON_ALLOC
 
 #define BUTTON1_DURATION_PER_REGISTER 3000
@@ -169,6 +171,21 @@ void displayRegister(CPU *cpuState, uint8_t regnum, int duration) {
   writeHexWordAndWait(cpuState->reg[regnum], duration);
 }
 
+// converts from the M1 register mapping order: [pcde gfab] (active high)
+// to the glyph mapping of the display library: [pgfe dcba] (active low)
+uint8_t registerMappingToGlyph(uint8_t regmap) {
+  uint8_t glyph = regmap & 0b10010000; // p and e are already in the right position
+
+  glyph |= (regmap & 64) >> 4; // c
+  glyph |= (regmap & 32) >> 2; // d
+  glyph |= (regmap &  8) << 3; // g
+  glyph |= (regmap &  4) << 3; // f
+  glyph |= (regmap &  2) >> 1; // a
+  glyph |= (regmap &  1) << 1; // b
+
+  return ~glyph; // display is active low
+}
+
 int writeMemory(uint16_t address, uint16_t value) {
   uint8_t block_index = (address & 0xff00) >> 8;
   if(block_index >= dataram.num_blocks) {
@@ -208,10 +225,12 @@ void ALU(CPU *cpuState, uint16_t inst) {
   uint32_t result = cpuState->reg[(inst & 0x00f0) >> 4]; //also operand A
   const uint16_t B = cpuState->reg[inst & 0x000f];
   #ifdef DEBUG
-  printf("\tALU CALL>> op: %u A: ", operation);
+  #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
+  printf("\t;ALU CALL>> op: %u A: ", operation);
   printWord(cpuState->reg[(inst & 0x00f0) >> 4]);
   printString(" B: ");
   printWord(cpuState->reg[inst & 0x000f]);
+  #endif
   #endif
   if(operation == 0) // NOP
   {
@@ -288,9 +307,11 @@ void ALU(CPU *cpuState, uint16_t inst) {
   }
 
   #ifdef DEBUG
+  #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
   printString(" result: ");
   printWord(result);
   printString("\n");
+  #endif
   #endif
   // reg[r] = reg[r] ALU reg[s]
   cpuState->reg[(inst & 0x00f0) >> 4] = (uint16_t) result;
@@ -312,7 +333,9 @@ void performInstructionCycle(CPU *cpuState) {
   {
     // 00x1 iiii iiii rrrr
     #ifdef DEBUG
+    #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
       printf("\tli r%u, 0x%X\n", inst & 0x000f, (inst >> 4) & 0x00ff);
+    #endif
     #endif
     cpuState->reg[inst & 0x000f] = (inst >> 4) & 0x00ff;
     cpuState->PC++;
@@ -320,7 +343,9 @@ void performInstructionCycle(CPU *cpuState) {
   {
     // 01xx AAAA rrrr ssss
     #ifdef DEBUG
+    #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
       printf("\tALU r%u, r%u", (inst & 0x00f0) >> 4, inst & 0x000f);
+    #endif
     #endif
     ALU(cpuState, inst);
     cpuState->PC++;
@@ -328,7 +353,9 @@ void performInstructionCycle(CPU *cpuState) {
   {
     // 100x xxxx rrrr ssss
     #ifdef DEBUG
+    #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
       printf("\tld r%u, (r%u)\n", (inst & 0x00f0) >> 4, inst & 0x000f);
+    #endif
     #endif
     cpuState->reg[(inst & 0x00f0) >> 4] = readMemory(cpuState->reg[inst & 0x000f]);
     cpuState->PC++;
@@ -336,7 +363,9 @@ void performInstructionCycle(CPU *cpuState) {
   {
     // 101x xxxx rrrr ssss
     #ifdef DEBUG
+    #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
       printf("\tst r%u, (r%u)\n", (inst & 0x00f0) >> 4, inst & 0x000f);
+    #endif
     #endif
     if(!writeMemory(cpuState->reg[inst & 0x000f], cpuState->reg[(inst & 0x00f0) >> 4])) {
       #ifdef DEBUG
@@ -349,14 +378,18 @@ void performInstructionCycle(CPU *cpuState) {
   {
     // 110x xxxx xxxx rrrr
     #ifdef DEBUG
+    #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
       printf("\tjp r%u\n", inst & 0x000f);
+    #endif
     #endif
     cpuState->PC = cpuState->reg[inst & 0x000f];
   }else if( (inst & 0xf000) == 0xf000 ) //CONDITIONAL JUMP
   {
     // 1111 xxxx xccN rrrr (N: negate condition if 1)
     #ifdef DEBUG
-      printf("\tjpC r%u  ; condition = %u\n", inst & 0x000f, (inst & 0x0060) >> 5);
+    #ifndef DEBUG_DONT_PRINT_INSTRUCTIONS
+      printf("\tjpC r%u  ;condition = %u\n", inst & 0x000f, (inst & 0x0060) >> 5);
+    #endif
     #endif
     uint8_t condition = (cpuState->flags & _BV((inst & 0x0060) >> 5)) != 0;
     if(condition != ((inst & 0x0010) >> 4)) {
@@ -432,7 +465,11 @@ int main() {
     if(cpuState.flags & FL_ZERO_MSK) lightUpLed(FL_ZERO);
     if(cpuState.flags & FL_SIGN_MSK) lightUpLed(FL_SIGN);
     if(cpuState.flags & FL_OVERFLOW_MSK) lightUpLed(FL_OVERFLOW);
-    
+    //Display mapped registers (r14 and r15)
+    writeGlyphToSegment(0, registerMappingToGlyph((cpuState.reg[14] & 0xff00) >> 8));
+    writeGlyphToSegment(1, registerMappingToGlyph((cpuState.reg[14] & 0x00ff)));
+    writeGlyphToSegment(2, registerMappingToGlyph((cpuState.reg[15] & 0xff00) >> 8));
+    writeGlyphToSegment(3, registerMappingToGlyph((cpuState.reg[15] & 0x00ff)));
+    writeGlyphToSegment(0, GLYPH_SPACE);
   }
-  
 }
