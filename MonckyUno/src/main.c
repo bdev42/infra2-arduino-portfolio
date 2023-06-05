@@ -8,19 +8,16 @@
 #include <ledlib.h>
 #include <display.h>
 
-#define DEBUG
+
+#include "program.h"
+
 #ifdef DEBUG
 #include <usart.h>
 #endif
 
-#define DEBUG_DONT_PRINT_INSTRUCTIONS
-
-#define CLEAR_GARBAGE_ON_ALLOC
-
+#ifndef BUTTON1_DURATION_PER_REGISTER
 #define BUTTON1_DURATION_PER_REGISTER 3000
-#define BUTTON1_SKIP_REGS_WITH_ZERO
-
-#include "program.h"
+#endif
 
 const uint16_t program[] = PROGRAM;
 
@@ -93,7 +90,7 @@ uint8_t updateClockSpeed(uint16_t *lastOCRA) {
   if(*lastOCRA != OCR1A) {
     *lastOCRA = OCR1A;
     #ifdef DEBUG
-    printf("CLK new OCRA: %u -> new clock freq: %u Hz\n", OCR1A, (15625 / OCR1A));
+    printf("[CLK] new OCRA: %u -> new est. clock freq: %u Hz\n", OCR1A, (15625 / OCR1A));
     #endif
     return 1;
   }
