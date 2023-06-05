@@ -15,6 +15,10 @@
 #include <usart.h>
 #endif
 
+#ifdef ERROR_BUZZER_ENABLE
+#include <fizzbuzzlib.h>
+#endif
+
 #ifndef BUTTON1_DURATION_PER_REGISTER
 #define BUTTON1_DURATION_PER_REGISTER 3000
 #endif
@@ -43,6 +47,13 @@ CPU cpuState = {};
 #define FL_OVERFLOW_MSK _BV(FL_OVERFLOW)
 #define FL_MEMORYF_MSK  _BV(FL_MEMORYF)
 #define FL_HALT_MSK     _BV(FL_HALT)
+
+// Signifies that the halt occured due to an error, 
+// i.e. one of the error flags are set:
+// 4 << RESERVED >> this flag is reserved for later use, and should never be set
+// 5 << RESERVED >> this flag is reserved for later use, and should never be set
+// 6 FL_MEMORYF_MSK: a memoryfault (due to allocation) occured
+#define HALTED_WITH_ERROR_MASK (FL_MEMORYF_MSK | _BV(5) | _BV(4))
 
 typedef struct
 {
@@ -429,6 +440,15 @@ ISR(TIMER1_COMPA_vect) {
     #ifdef DEBUG
     printState(&cpuState);
     #endif
+    #ifdef ERROR_BUZZER_ENABLE
+    if((cpuState.flags & HALTED_WITH_ERROR_MASK) != 0) {
+      playTone((cpuState.flags & _BV(4)) ? G4 : C6, 800);
+      _delay_ms(400);
+      playTone((cpuState.flags & _BV(5)) ? G4 : C6, 800);
+      _delay_ms(400);
+      playTone((cpuState.flags & FL_MEMORYF_MSK) ? G4 : C6, 800);
+    }
+    #endif
   }
 }
 
@@ -439,6 +459,10 @@ int main() {
   initDisplay();
   initADC();
   setupClock();
+
+  #ifdef ERROR_BUZZER_ENABLE
+  enableBuzzer();
+  #endif
 
   #ifdef DEBUG
   initUSART();

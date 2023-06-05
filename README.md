@@ -79,12 +79,17 @@ value will be shown for when button1 is pressed.
 
 **Usage:** `#define BUTTON1_DURATION_PER_REGISTER <duration-in-ms>`
 ##### **BUTTON1_SKIP_REGS_WITH_ZERO**
-// If defined, the registers that posess a value of 0 will
-// not be shown (skipped), this makes displaying all the
-// registers take less time, without losing any information.
+If defined, the registers that posess a value of 0 will
+not be shown (skipped), this makes displaying all the
+registers take less time, without losing any information.
 
 **Usage:** `#define BUTTON1_SKIP_REGS_WITH_ZERO`
+#### **ERROR_BUZZER_ENABLE**
+If defined, the buzzer will beep if any errors,
+such as a memoryfault occured. (aka when any of
+the flags inside the HALTED_WITH_ERROR_MASK are set)
 
+**Usage:** `#define ERROR_BUZZER_ENABLE`
 
 ## Weekly Projects
 ### [Lunar Lander](LunarLander/)
