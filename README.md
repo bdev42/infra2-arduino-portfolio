@@ -84,7 +84,7 @@ not be shown (skipped), this makes displaying all the
 registers take less time, without losing any information.
 
 **Usage:** `#define BUTTON1_SKIP_REGS_WITH_ZERO`
-#### **ERROR_BUZZER_ENABLE**
+##### **ERROR_BUZZER_ENABLE**
 If defined, the buzzer will beep if any errors,
 such as a memoryfault occured. (aka when any of
 the flags inside the HALTED_WITH_ERROR_MASK are set)

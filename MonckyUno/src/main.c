@@ -11,6 +11,14 @@
 
 #include "program.h"
 
+#ifndef PROGRAM
+#define PROGRAM {                   \
+    0x1081, 0x157e, 0x46e1, 0x170d, \
+    0x41ed, 0x158f, 0x46f1, 0x178d, \
+    0x41fd, 0x0000,                 \
+}
+#endif
+
 #ifdef DEBUG
 #include <usart.h>
 #endif
