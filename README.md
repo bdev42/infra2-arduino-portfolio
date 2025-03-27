@@ -1,7 +1,7 @@
 # Embedded System Programming with Arduino - Assessment Portfolio
 
 ## **Final Project:** Moncky 1 emulator (MonckyUno)
-[Project Proposal](https://docs.google.com/document/d/14MxjyNdxrFIr5g0-lHUJzJUsimFi6WuBhsvv9xIky0E/edit?usp=share_link) | [The Moncky Project by Kris Demuynck](https://gitlab.com/big-bat/moncky)
+[Project Proposal](/assets/project-proposal.md) ([pdf](/assets/project-proposal.pdf)) | Inspired by: [The Moncky Project by Kris Demuynck](https://gitlab.com/big-bat/moncky)
 
 **TASK OVERVIEW**
 - [x] Proposal approved
@@ -27,7 +27,7 @@
 
 ### **How to use**
 #### **Setup**
-Once you have cloned [this](https://gitlab.com/kdg-ti/infrastructure2/2022-2023/boldizsar-olajos) git repository,
+Once you have cloned [this](https://github.com/bdev42/infra2-arduino-portfolio.git) git repository,
 open the `MonckyUno` directory in _VS Code_ with **PlatformIO**.
 
 #### **Loading a program**
